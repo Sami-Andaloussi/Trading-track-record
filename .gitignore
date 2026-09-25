@@ -9,16 +9,12 @@ __pycache__/
 # Source content this repo is built from — kept locally only, not published.
 data/
 
-# Raw transcripts of the source material — never published.
 transcripts/
 
-# Raw audio extracted from the source material — never published (size + rights).
 audio/
 
-# Screenshots from the source material — never published (rights).
 screenshots/
 
-# Internal technical notes about the source material — personal use only.
 FAISABILITE.md
 
 # Old auto-generated fiche dumps, superseded by data/*.py + trades/*.md.
