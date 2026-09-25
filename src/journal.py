@@ -20,10 +20,12 @@ Entry schema (see README for the full write-up):
 """
 from __future__ import annotations
 
-import os
+import json
 import re
 from datetime import datetime
+from pathlib import Path
 
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 
 # --------------------------------------------------------------------------- #
@@ -192,70 +194,119 @@ def plot_monthly_equity(labels: list[str], values: list[float], title: str):
 
 
 # --------------------------------------------------------------------------- #
-# Optional price context (Yahoo Finance, best-effort)
+# Price context (daily candles, from the local price_cache/*.json files)
 # --------------------------------------------------------------------------- #
+#
+# Historical daily OHLC is fetched ahead of time (via the Yahoo Finance chart
+# API) and cached locally as data/price_cache/{TICKER}.json, one file per
+# pair, each a JSON array of [date, open, high, low, close] rows. This module
+# only ever reads those local files — it makes no network calls — so building
+# the journal never depends on live internet access.
 
-YF_TICKER_OVERRIDES = {
-    "XAUUSD": "GC=F",
-    "SPX500": "^GSPC",
-    "US500": "^GSPC",
-    "NAS100": "^NDX",
-    "US30": "^DJI",
-    "GER40": "^GDAXI",
-    "UK100": "^FTSE",
-}
-
-
-def asset_to_yf_ticker(pair: str) -> str | None:
+def pair_to_cache_ticker(pair: str) -> str | None:
+    """Map a trade pair label (e.g. 'AUD/CAD', 'XAUUSD') to the price_cache
+    filename stem (e.g. 'AUDCAD', 'XAUUSD') used when the data was fetched."""
     if not pair:
         return None
-    a = re.sub(r"\s*\(.*?\)\s*", "", pair).replace("/", "").strip().upper()
-    if a in YF_TICKER_OVERRIDES:
-        return YF_TICKER_OVERRIDES[a]
-    if re.fullmatch(r"[A-Z]{6}", a):
-        return f"{a}=X"
-    return None
+    return re.sub(r"\s*\(.*?\)\s*", "", pair).replace("/", "").strip().upper()
 
 
-def fetch_price_history(ticker: str, start: str, end: str):
-    """Best-effort price fetch. Never raises — returns None if unavailable
-    (no network, invalid ticker, etc.) so notebooks stay executable anywhere."""
-    if os.environ.get("JOURNAL_SKIP_PRICE_CHARTS"):
-        print(f"  [price charts skipped — no internet access in this environment]")
+def load_cached_ohlc(cache_dir: Path, pair: str):
+    """Load a pair's cached daily OHLC as a pandas DataFrame indexed by date,
+    or None if no cache file exists for it."""
+    ticker = pair_to_cache_ticker(pair)
+    if not ticker:
         return None
-    try:
-        import yfinance as yf
-        df = yf.download(ticker, start=start, end=end, progress=False, auto_adjust=True)
-        if df is None or df.empty:
-            return None
-        return df
-    except Exception as e:  # noqa: BLE001 - intentionally broad, see docstring
-        print(f"  [price data unavailable for {ticker}: {type(e).__name__}]")
+    path = Path(cache_dir) / f"{ticker}.json"
+    if not path.exists():
         return None
+    import pandas as pd
+    rows = json.loads(path.read_text())
+    df = pd.DataFrame(rows, columns=["Date", "Open", "High", "Low", "Close"])
+    df["Date"] = pd.to_datetime(df["Date"])
+    return df.set_index("Date").sort_index()
 
 
-def plot_price_context(entry: dict):
-    ticker = asset_to_yf_ticker(entry.get("pair", ""))
+def render_trade_chart(cache_dir: Path, entry: dict, out_path: Path, window_days: int = 15) -> bool:
+    """Render a daily price-context chart spanning `window_days` on either
+    side of entry['date'], mark the entry, and save it as a PNG at out_path.
+
+    Yahoo's daily FX data frequently reports the same value for a day's open
+    and close (a known quirk of its `=X` cross-rate feeds — futures and index
+    tickers don't have it), which makes literal candlestick bodies degenerate
+    into a thin dash for most days. Rather than draw misleading candles for
+    some pairs and real ones for others, every chart uses one consistent
+    style: each day's high/low range as a coloured bar (green/red by whether
+    that day's close rose or fell from the previous close, which stays
+    meaningful regardless of the open field) with the daily close plotted as
+    a line on top, and the entry date marked with a dashed vertical line.
+
+    Returns True on success, False when there's no exact date, no cached data
+    for the pair, or no cached rows in range — callers should skip embedding
+    an image in that case rather than treat it as an error.
+    """
     date_str = entry.get("date")
-    if not ticker or not date_str or len(date_str) != 10:
-        return
+    pair = entry.get("pair")
+    if not date_str or len(date_str) != 10 or not pair:
+        return False
     try:
         d = datetime.strptime(date_str, "%Y-%m-%d")
     except ValueError:
-        return
+        return False
+
+    df = load_cached_ohlc(cache_dir, pair)
+    if df is None or df.empty:
+        return False
+
     import pandas as pd
-    start = (d - pd.Timedelta(days=15)).strftime("%Y-%m-%d")
-    end = (d + pd.Timedelta(days=15)).strftime("%Y-%m-%d")
-    hist = fetch_price_history(ticker, start, end)
-    if hist is None:
-        return
-    close_col = "Close" if "Close" in hist.columns else hist.columns[0]
-    fig, ax = plt.subplots(figsize=(7, 2.6))
-    ax.plot(hist.index, hist[close_col], color=COLOR_LINE, linewidth=1.4)
-    ax.axvline(d, color=COLOR_LOSS if entry.get("r", 0) and entry["r"] < 0 else COLOR_WIN,
-               linestyle="--", linewidth=1.2, label="Entry")
-    ax.set_title(f"{entry.get('pair')} around {date_str}", fontsize=10.5, fontweight="bold", loc="left")
-    ax.legend(frameon=False, fontsize=8.5)
+    d = pd.Timestamp(d)
+    lo, hi = d - pd.Timedelta(days=window_days), d + pd.Timedelta(days=window_days)
+    # Pull one extra prior row so the first bar in the window has a previous
+    # close to compare against for its up/down colour.
+    pre = df.loc[df.index < lo]
+    window = df.loc[(df.index >= lo) & (df.index <= hi)]
+    if window.empty:
+        return False
+    prev_close = pre["Close"].iloc[-1] if not pre.empty else None
+
+    r = entry.get("r")
+    if r is not None and r > 0:
+        entry_color = COLOR_WIN
+    elif r is not None and r < 0:
+        entry_color = COLOR_LOSS
+    else:
+        entry_color = COLOR_NEUTRAL
+
+    # Nearest trading day to the entry date (Yahoo has no weekend/holiday rows).
+    nearest_idx = window.index[(window.index - d).map(lambda td: abs(td.days)).argmin()]
+
+    fig, ax = plt.subplots(figsize=(7.2, 3.4))
+    closes = window["Close"].tolist()
+    for i, (idx, row) in enumerate(window.iterrows()):
+        prior = closes[i - 1] if i > 0 else prev_close
+        if prior is None:
+            bar_color = COLOR_NEUTRAL
+        else:
+            bar_color = COLOR_WIN if row["Close"] >= prior else COLOR_LOSS
+        ax.plot([idx, idx], [row["Low"], row["High"]], color=bar_color,
+                linewidth=3.2, alpha=0.55, solid_capstyle="round")
+    ax.plot(window.index, window["Close"], color=COLOR_LINE, linewidth=1.3,
+            marker="o", markersize=2.6, zorder=3)
+    ax.axvline(nearest_idx, color=entry_color, linestyle="--", linewidth=1.4, zorder=4)
+
+    direction = entry.get("direction")
+    arrow = {"long": "▲", "short": "▼"}.get(direction, "")
+    ax.set_title(f"{pair} — {d.strftime('%b %d, %Y')} {arrow}".strip(),
+                 fontsize=11, fontweight="bold", loc="left")
+    ax.set_ylabel("Price")
+    ax.xaxis.set_major_locator(mdates.AutoDateLocator(maxticks=8, minticks=5))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %d"))
+    ax.tick_params(axis="x", rotation=0)
     _style_axes(ax)
     plt.tight_layout()
-    plt.show()
+
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+    return True
