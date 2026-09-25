@@ -36,6 +36,9 @@ from pathlib import Path
 import nbformat as nbf
 from nbformat.v4 import new_notebook, new_markdown_cell, new_code_cell
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import journal
+
 MONTHS = [
     "2023-02", "2023-03", "2023-04", "2023-05", "2023-06", "2023-07", "2023-08", "2023-09",
     "2023-10", "2023-11", "2023-12", "2024-01", "2024-02", "2024-03", "2024-04", "2024-05",
@@ -106,8 +109,36 @@ def meta_line(e: dict) -> str:
     return " · ".join(bits)
 
 
-def entry_markdown(e: dict) -> str:
-    return f"### {e['title']}\n\n*{meta_line(e)}*\n\n{e['body']}"
+def chart_image_path(root: Path, ym: str, e: dict) -> Path | None:
+    """Where a trade's chart PNG lives, if it could plausibly have one."""
+    date_str = e.get("date")
+    ticker = journal.pair_to_cache_ticker(e.get("pair", ""))
+    if not date_str or len(date_str) != 10 or not ticker:
+        return None
+    return root / "track_record" / "charts" / ym / f"{ticker}_{date_str}.png"
+
+
+def build_entry_chart(root: Path, ym: str, e: dict) -> str | None:
+    """Render the chart for one entry (if it has an exact date and cached
+    price data) and return the markdown image snippet, or None to skip."""
+    out_path = chart_image_path(root, ym, e)
+    if out_path is None:
+        return None
+    cache_dir = root / "data" / "price_cache"
+    ok = journal.render_trade_chart(cache_dir, e, out_path)
+    if not ok:
+        return None
+    rel = out_path.relative_to(root / "track_record")
+    return f"![{e['pair']} chart around {fmt_date(e['date'])}]({rel.as_posix()})"
+
+
+def entry_markdown(e: dict, chart_md: str | None = None) -> str:
+    parts = [f"### {e['title']}", "", f"*{meta_line(e)}*", ""]
+    if chart_md:
+        parts.append(chart_md)
+        parts.append("")
+    parts.append(e["body"])
+    return "\n".join(parts)
 
 
 def _summary_from_entries(entries: list[dict]) -> str:
@@ -128,7 +159,8 @@ def build_month_markdown(root: Path, ym: str) -> Path:
     label = content["label"]
     lines = [f"# {label}", ""]
     for e in entries:
-        lines.append(entry_markdown(e))
+        chart_md = build_entry_chart(root, ym, e)
+        lines.append(entry_markdown(e, chart_md))
         lines.append("")
     lines.append("---")
     lines.append("")
