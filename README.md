@@ -7,10 +7,12 @@ managed, and the outcome or lesson. The point of this isn't the R number —
 it's building a record I can actually go back and read to spot patterns in
 my own decision-making.
 
-Each month is also available as a self-contained **Jupyter notebook**
-(`notebooks/YYYY-MM.ipynb`), rolled up into **year-in-review** notebooks
-(`notebooks/years/`) and one **full-history** notebook
-(`notebooks/global_track_record.ipynb`).
+Months are plain markdown (`track_record/YYYY-MM.md`) — with only 2-4 trades
+a month, a notebook doesn't add anything over well-formatted text. The
+months roll up into **year-in-review** notebooks (`track_record/years/`) and
+one **full-history** notebook (`track_record/global_track_record.ipynb`),
+where aggregating 9-20 months of numbers actually makes a chart worth
+having.
 
 ## Why the numbers won't tie out to a "real" track record
 
@@ -28,47 +30,50 @@ Across all 20 months: **+40.46R** logged over **54 trades**.
 ## Repo layout
 
 ```
-data/YYYY-MM.py       Source content for each month (kept locally, not published —
-                       see .gitignore). This is what notebooks/ and trades/ are
-                       generated from.
-trades/YYYY-MM.md      Plain-markdown version of each month's entries, readable
-                       without Jupyter.
-src/journal.py         Shared helpers: stats, chart styling, optional price charts.
-src/build_notebooks.py Generates trades/*.md and notebooks/ from data/*.py.
-notebooks/YYYY-MM.ipynb           One notebook per month.
-notebooks/years/YYYY.ipynb        Year-in-review rollup.
-notebooks/global_track_record.ipynb  Full-history rollup.
+data/YYYY-MM.py                        Source content for each month (kept locally,
+                                        not published — see .gitignore). This is
+                                        what track_record/ is generated from.
+track_record/YYYY-MM.md                Each month's entries, plain markdown.
+track_record/years/YYYY.ipynb          Year-in-review rollup notebook.
+track_record/global_track_record.ipynb Full-history rollup notebook.
+src/journal.py                         Shared helpers: stats, chart styling.
+src/build_notebooks.py                 Generates track_record/ from data/*.py.
 ```
 
-Every notebook is **self-contained**: the trade entries for that month (or
-year) are embedded directly in the notebook itself, so nothing outside the
-notebook is needed to read it or re-run it. `data/` is only used to *build*
-the notebooks and markdown files — it isn't part of what's published here.
+The two rollup notebooks are **self-contained**: each month's figures are
+embedded directly in the notebook itself, so nothing outside the notebook is
+needed to read it or re-run it. `data/` is only used to *build* everything —
+it isn't part of what's published here.
 
 ## Charts
 
-Each month notebook plots R per trade and a cumulative-R curve for that
-month. Year and full-history notebooks plot the same thing aggregated by
-month. There's also an optional per-trade price chart (via Yahoo Finance)
-showing the instrument's price around the trade date — this needs a normal
-internet connection to fetch data; it fails silently and just skips itself
-if none is available.
+The year and full-history notebooks each plot R by month and a cumulative-R
+curve. That's it for now — see "What's next" below.
 
 ## Using this repo
 
 ```bash
 pip install -r requirements.txt
-jupyter lab notebooks/global_track_record.ipynb   # full history
-# or open a single month, e.g. notebooks/2024-07.ipynb
+jupyter lab track_record/global_track_record.ipynb   # full history
+# or open a single year, e.g. track_record/years/2024.ipynb
+# months are just markdown — read track_record/2024-07.md directly
 ```
 
-All notebooks are pre-executed, so charts render statically on GitHub
-without needing to run anything. To regenerate after editing `data/`:
+The two rollup notebooks are pre-executed, so their charts render statically
+on GitHub without needing to run anything. To regenerate after editing
+`data/`:
 
 ```bash
 python3 src/build_notebooks.py --execute        # rebuild + run everything
-python3 src/build_notebooks.py --only 2024-08   # just one month
+python3 src/build_notebooks.py --only 2024-08   # just one month's markdown
 ```
+
+## What's next
+
+The one thing missing is real chart context per trade — a price chart
+showing the actual setup, not just an aggregate R bar. The plan is to pull
+those from TradingView / FX Replay and drop them into the relevant month's
+markdown.
 
 ## Monthly log
 
