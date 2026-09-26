@@ -194,6 +194,67 @@ def plot_monthly_equity(labels: list[str], values: list[float], title: str):
 
 
 # --------------------------------------------------------------------------- #
+# Account-level view (position-sizing translation)
+# --------------------------------------------------------------------------- #
+# The R-multiple track record above is sizing-agnostic on purpose — R is what
+# lets very different trades sit on one scale. This section is the one place
+# that translates it into an account-percentage return, under a fixed
+# risk-per-trade and a conservative execution-cost allowance on losing
+# trades, to match how the result actually gets reported elsewhere.
+
+ACCOUNT_RISK_PCT = 0.45      # % of account risked per 1R
+ACCOUNT_LOSS_ADJUST = 1.40   # extra weight on a losing trade's R (execution cost)
+
+
+def account_returns(r_values: list[float], risk_pct: float = ACCOUNT_RISK_PCT,
+                     loss_adjust: float = ACCOUNT_LOSS_ADJUST) -> list[float]:
+    """Per-trade account-% return for each R value in `r_values`, in order."""
+    out = []
+    for r in r_values:
+        weighted = r if r >= 0 else r * loss_adjust
+        out.append(weighted * risk_pct)
+    return out
+
+
+def account_stats(r_values: list[float], risk_pct: float = ACCOUNT_RISK_PCT,
+                   loss_adjust: float = ACCOUNT_LOSS_ADJUST) -> dict:
+    """Return total return %, win rate %, max drawdown % (in account-percentage
+    points, not % of peak) and the cumulative curve, over `r_values` in order."""
+    pct_returns = account_returns(r_values, risk_pct, loss_adjust)
+    equity = 100.0
+    peak = 100.0
+    max_dd = 0.0
+    curve = [0.0]
+    for pct in pct_returns:
+        equity += pct
+        peak = max(peak, equity)
+        max_dd = max(max_dd, peak - equity)
+        curve.append(equity - 100.0)
+    wins = sum(1 for r in r_values if r > 0)
+    losses = sum(1 for r in r_values if r < 0)
+    win_rate = 100.0 * wins / (wins + losses) if (wins + losses) else 0.0
+    return {
+        "return_pct": equity - 100.0,
+        "win_rate_pct": win_rate,
+        "max_drawdown_pct": max_dd,
+        "curve": curve,
+    }
+
+
+def plot_account_equity(curve: list[float], title: str):
+    fig, ax = plt.subplots(figsize=(7, 3.2))
+    ax.plot(range(len(curve)), curve, marker="o", markersize=4, color=COLOR_LINE, linewidth=1.6)
+    ax.fill_between(range(len(curve)), curve, 0, alpha=0.06, color=COLOR_LINE)
+    ax.axhline(0, color=COLOR_GRID, linewidth=1, linestyle="--")
+    ax.set_xlabel("Trade #")
+    ax.set_ylabel("Cumulative return (%)")
+    ax.set_title(title, fontsize=11, fontweight="bold", loc="left")
+    _style_axes(ax)
+    plt.tight_layout()
+    plt.show()
+
+
+# --------------------------------------------------------------------------- #
 # Price context (daily candles, from the local price_cache/*.json files)
 # --------------------------------------------------------------------------- #
 #

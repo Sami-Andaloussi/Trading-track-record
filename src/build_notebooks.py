@@ -253,18 +253,22 @@ def build_month_markdown(root: Path, ym: str) -> Path:
 # --------------------------------------------------------------------------- #
 
 def build_rollup_notebook(root: Path, months: list[str], title: str, out_path: Path,
-                           month_link_prefix: str, extra_links_md: str = "") -> Path:
+                           month_link_prefix: str, extra_links_md: str = "",
+                           account_view: bool = False) -> Path:
     month_rows = []
+    all_r: list[float] = []
     for ym in months:
         content = load_month_content(root, ym)
         entries = content["entries"]
-        closed = [e for e in entries if e.get("status") == "closed" and e.get("r") is not None]
+        closed = journal.closed_entries(entries)
         month_rows.append({
             "month": content["label"],
             "ym": ym,
             "total_r": round(sum(e["r"] for e in closed), 2),
             "trades": len(closed),
         })
+        if account_view:
+            all_r.extend(e["r"] for e in closed)
 
     links_md = "\n".join(f"- [{r['month']}]({month_link_prefix}/{r['ym']}.md)" for r in month_rows)
 
@@ -287,6 +291,25 @@ def build_rollup_notebook(root: Path, months: list[str], title: str, out_path: P
     cells.append(new_code_cell(
         f'journal.plot_monthly_equity(list(df.index), list(df["R"]), "Cumulative R — {title}")\n'
     ))
+
+    if account_view:
+        cells.append(new_markdown_cell(
+            "### Account-level view\n\n"
+            "The R-multiples above are sizing-agnostic on purpose. Translated onto an "
+            "actual account — a fixed 0.45% risked per R, with an execution-cost "
+            "allowance built into losing trades — the same 20 months read as:"
+        ))
+        cells.append(new_code_cell(
+            f"trade_r = {pprint.pformat(all_r, width=100)}\n\n"
+            "stats = journal.account_stats(trade_r)\n"
+            "print(f\"Return: {stats['return_pct']:+.1f}%\")\n"
+            "print(f\"Win rate: {stats['win_rate_pct']:.0f}%\")\n"
+            "print(f\"Max drawdown: {stats['max_drawdown_pct']:.2f}%\")\n"
+        ))
+        cells.append(new_code_cell(
+            f'journal.plot_account_equity(stats["curve"], "Cumulative account return — {title}")\n'
+        ))
+
     cells.append(new_markdown_cell("### Months\n\n" + links_md + ("\n\n" + extra_links_md if extra_links_md else "")))
 
     nb = new_notebook(cells=cells)
@@ -312,6 +335,7 @@ def build_global_notebook(root: Path) -> Path:
         root / "track_record" / "global_track_record.ipynb",
         month_link_prefix=".",   # track_record/global_track_record.ipynb -> ./2024-01.md
         extra_links_md=extra,
+        account_view=True,
     )
 
 
