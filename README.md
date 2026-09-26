@@ -27,6 +27,12 @@ trades I can actually explain, so I never end up padding a gap with a guess.
 
 Across all 20 months: **+40.46R** logged over **54 trades**.
 
+Modeled onto an actual account — 0.45% risked per R, with an allowance for
+execution slippage on losing trades — that's a **+14.8% return**, a **55%
+win rate**, and a **2.14% max drawdown** over the same 20 months. That view
+lives in the full-history notebook (`track_record/global_track_record.ipynb`)
+alongside the R-based one above.
+
 ## Repo layout
 
 ```
