@@ -132,12 +132,86 @@ def build_entry_chart(root: Path, ym: str, e: dict) -> str | None:
     return f"![{e['pair']} chart around {fmt_date(e['date'])}]({rel.as_posix()})"
 
 
-def entry_markdown(e: dict, chart_md: str | None = None) -> str:
+def context_image_path(root: Path, ym: str, e: dict, context_key: str) -> Path | None:
+    """Where a secondary/macro-asset context chart PNG lives, if it could
+    plausibly have one."""
+    date_str = e.get("date")
+    if not date_str or len(date_str) != 10:
+        return None
+    return root / "track_record" / "charts" / ym / f"ctx_{context_key}_{date_str}.png"
+
+
+def build_entry_context_charts(root: Path, ym: str, e: dict) -> list[str]:
+    """Render a chart for each secondary/macro asset an entry's reasoning
+    explicitly names (entry['context'], a list of journal.CONTEXT_ASSETS
+    keys — e.g. oil driving a CAD trade, DXY driving a USD trade) and return
+    their markdown image snippets. Entries with no 'context' field, or where
+    a given asset has no cached data for the window, contribute nothing."""
+    context_keys = e.get("context") or []
+    if not context_keys:
+        return []
+    cache_dir = root / "data" / "price_cache"
+    date_str = e.get("date")
+    out = []
+    for key in context_keys:
+        out_path = context_image_path(root, ym, e, key)
+        if out_path is None:
+            continue
+        ok = journal.render_context_chart(cache_dir, key, date_str, out_path)
+        if not ok:
+            continue
+        _, label = journal.CONTEXT_ASSETS.get(key, (None, key))
+        rel = out_path.relative_to(root / "track_record")
+        out.append(f"![{label} around {fmt_date(date_str)}]({rel.as_posix()})")
+    return out
+
+
+def calendar_image_path(root: Path, ym: str, e: dict) -> Path | None:
+    """Where an entry's Forex Factory economic-calendar table PNG lives, if
+    it could plausibly have one."""
+    date_str = e.get("date")
+    ticker = journal.pair_to_cache_ticker(e.get("pair", ""))
+    if not date_str or len(date_str) != 10 or not ticker:
+        return None
+    return root / "track_record" / "charts" / ym / f"ff_{ticker}_{date_str}.png"
+
+
+def build_entry_calendar(root: Path, ym: str, e: dict) -> str | None:
+    """Render the day's economic-calendar table for one entry (filtered to
+    the currencies relevant to its pair) and return the markdown image
+    snippet, or None to skip (no exact date, no cached calendar for that
+    day, or nothing left after filtering)."""
+    out_path = calendar_image_path(root, ym, e)
+    if out_path is None:
+        return None
+    ff_cache_dir = root / "data" / "ff_calendar"
+    ok = journal.render_trade_calendar(ff_cache_dir, e, out_path)
+    if not ok:
+        return None
+    rel = out_path.relative_to(root / "track_record")
+    return f"![Economic calendar, {fmt_date(e['date'])}]({rel.as_posix()})"
+
+
+def entry_markdown(e: dict, chart_md: str | None = None,
+                    context_mds: list[str] | None = None,
+                    calendar_md: str | None = None) -> str:
     parts = [f"### {e['title']}", "", f"*{meta_line(e)}*", ""]
     if chart_md:
         parts.append(chart_md)
         parts.append("")
     parts.append(e["body"])
+    if context_mds:
+        parts.append("")
+        parts.append("**What the trade thesis pointed to:**")
+        parts.append("")
+        for md in context_mds:
+            parts.append(md)
+            parts.append("")
+    if calendar_md:
+        parts.append("")
+        parts.append("**Economic calendar that day:**")
+        parts.append("")
+        parts.append(calendar_md)
     return "\n".join(parts)
 
 
@@ -160,7 +234,9 @@ def build_month_markdown(root: Path, ym: str) -> Path:
     lines = [f"# {label}", ""]
     for e in entries:
         chart_md = build_entry_chart(root, ym, e)
-        lines.append(entry_markdown(e, chart_md))
+        context_mds = build_entry_context_charts(root, ym, e)
+        calendar_md = build_entry_calendar(root, ym, e)
+        lines.append(entry_markdown(e, chart_md, context_mds, calendar_md))
         lines.append("")
     lines.append("---")
     lines.append("")
