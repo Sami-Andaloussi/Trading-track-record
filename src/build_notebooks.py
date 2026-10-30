@@ -104,7 +104,11 @@ def meta_line(e: dict) -> str:
     status = e.get("status")
     if status == "closed":
         r = e.get("r")
-        bits.append(f"closed · {r:+.2f}R" if r is not None else "closed")
+        if r is not None:
+            bits.append(f"closed · {r:+.2f}R")
+        else:
+            # r_note says why a closed trade has no R, e.g. "exit not logged".
+            bits.append(f"closed · {e['r_note']}" if e.get("r_note") else "closed")
     elif status == "open":
         fr = e.get("floating_r")
         bits.append(f"still open · {fr:+.2f}R floating" if fr is not None else "still open")

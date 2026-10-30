@@ -3,7 +3,9 @@
 The trading journal from my personal account: discretionary macro, trading
 CFDs on currencies, indices, gold and oil. I traded alongside other work from
 February 2023 and full time from September 2023 to September 2024. I haven't
-traded since September 2024 and have no capital invested.
+traded since September 2024. The long-term equity and crypto holdings
+mentioned in some 2023-2024 entries are gone too: today I have no capital
+invested.
 
 **The account finished at breakeven.** This journal is not the account's full
 history and it is not a performance record. It's a documented sample: 54
@@ -20,6 +22,9 @@ wrote the journal as I went and cleaned it up in 2026.
 - Scenarios built over several days before I put anything on.
 - A reward-to-risk of at least 1.5 on every entry.
 - Size cut by 25% after three losses in a row.
+- In a real drawdown on the account, a tighter cap on top of that: 50% of
+  normal size in November 2023, 0.5R per idea in January-February 2024. The
+  two rules ran side by side.
 - Out as soon as the scenario is invalidated.
 
 The entries show where I kept to these rules and where I didn't.
