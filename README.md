@@ -1,37 +1,43 @@
 # Trading journal — Feb 2023 to Sep 2024
 
-A written trading journal covering 20 months, February 2023 through September
-2024. Each month is a set of first-person entries logged around the time of
-the trade: the macro and technical reasoning behind it, how it was sized and
-managed, and the outcome or lesson. The point of this isn't the R number —
-it's building a record I can actually go back and read to spot patterns in
-my own decision-making.
+The trading journal from my personal account: discretionary macro, trading
+CFDs on currencies, indices, gold and oil. I traded alongside other work from
+February 2023 and full time from September 2023 to September 2024. I haven't
+traded since September 2024 and have no capital invested.
 
-Months are plain markdown (`track_record/YYYY-MM.md`) — with only 2-4 trades
-a month, a notebook doesn't add anything over well-formatted text. The
-months roll up into **year-in-review** notebooks (`track_record/years/`) and
-one **full-history** notebook (`track_record/global_track_record.ipynb`),
-where aggregating 9-20 months of numbers actually makes a chart worth
-having.
+**The account finished at breakeven.** This journal is not the account's full
+history and it is not a performance record. It's a documented sample: 54
+positions over 20 months (29 winners, 24 losers, 1 breakeven), the trades
+whose reasoning I could explain properly. The trades that never made it into
+the journal were mostly losers.
 
-## Why the numbers won't tie out to a "real" track record
+Each month is a set of first-person entries: the macro and technical reasoning
+behind a trade, how it was sized and managed, and the outcome or lesson. I
+wrote the journal as I went and cleaned it up in 2026.
 
-I only log a trade once I have enough of the actual reasoning behind it to
-write something useful — the setup, the thesis, how I managed it. A line on
-a monthly P&L chart with no story behind it doesn't get an entry, because
-there's nothing to learn from a bare number. That means some months here
-show fewer trades, or a smaller total, than what actually happened that
-month — and that's fine. This journal isn't meant to reconcile to a
-month-end statement; it's meant to be a complete, honest account of the
-trades I can actually explain, so I never end up padding a gap with a guess.
+## The system
 
-Across all 20 months: **+40.46R** logged over **54 trades**.
+- Scenarios built over several days before I put anything on.
+- A reward-to-risk of at least 1.5 on every entry.
+- Size cut by 25% after three losses in a row.
+- Out as soon as the scenario is invalidated.
 
-Modeled onto an actual account — 0.45% risked per R, with an allowance for
-execution slippage on losing trades — that's a **+14.8% return**, a **55%
-win rate**, and a **2.14% max drawdown** over the same 20 months. That view
-lives in the full-history notebook (`track_record/global_track_record.ipynb`)
-alongside the R-based one above.
+The entries show where I kept to these rules and where I didn't.
+
+## Reading the numbers
+
+Results are in R, the multiple of the risk taken on that trade. They describe
+the logged trades only: a month's R doesn't match that month's statement, and
+the journal's total isn't the account's result. Positions whose exit I never
+wrote up, or whose R I didn't record, have no figure and aren't counted.
+
+Across the 20 months, the 54 logged positions add up to **+40.46R**.
+
+Months are plain markdown (`track_record/YYYY-MM.md`); with only 2-4 trades
+a month, a notebook doesn't add anything over well-formatted text. The months
+roll up into **year-in-review** notebooks (`track_record/years/`) and one
+**full-history** notebook (`track_record/global_track_record.ipynb`), which
+chart R by month and cumulative R across the sample.
 
 ## Repo layout
 
@@ -144,4 +150,4 @@ python3 src/build_notebooks.py --only 2024-08   # just one month's markdown
 | Jul 2024 | +5.30R | 3 |
 | Aug 2024 | -0.44R | 2 |
 | Sep 2024 | -0.75R | 1 |
-| **Total** | **+40.46R** | **54** |
+| **Total (logged sample)** | **+40.46R** | **54** |
